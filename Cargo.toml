@@ -1,0 +1,20 @@
+[package]
+authors = ["Michael Rosenberg", "42micro@gmail.com"]
+name = "dudect-bencher"
+version = "0.1.0"
+
+license = "MIT"
+
+repository = "https://github.com/doomrobo/dudect-bencher/"
+documentation = "https://docs.rs/dudect-bencher/"
+
+description = "An implementation of the DudeCT constant-time function tester"
+
+keywords = ["constant", "constant-time", "crypto", "benchmark"]
+
+[dependencies]
+clap = "2.25"
+take_mut = "0.1"
+
+[dev-dependencies]
+rand = "0.3"
