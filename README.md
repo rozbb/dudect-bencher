@@ -1,4 +1,6 @@
 # dudect-bencher
+[![Version](https://img.shields.io/crates/v/dudect-bencher.svg)](https://crates.io/crates/dudect-bencher)
+[![Docs](https://docs.rs/dudect-bencher/badge.svg)](https://docs.rs/dudect-bencher)
 
 This crate implements the [DudeCT](https://eprint.iacr.org/2016/1123.pdf) statistical methods for
 testing constant-time functions. It is based loosely off of the
