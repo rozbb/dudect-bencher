@@ -46,6 +46,7 @@
 //! constant-time, since there may be other input distributions under which the function behaves
 //! significantly differently.
 
+// TODO: Make an interrupt handler to flush file_out if killed
 // TODO: More comments
 // TODO: Do "higher order preprocessing" from the paper
 // TODO: Make determinstic benches with provided rand generator

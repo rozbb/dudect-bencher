@@ -22,7 +22,7 @@ fn arith(bench: &mut CtBencher) {
         let mut classes = Vec::new();
 
         // Make 20,000 inputs on each run
-        for _ in 0..20_000 {
+        for _ in 0..100_000 {
             inputs.push(csprng.gen::<usize>());
             // Randomly pick which distribution this example belongs to
             if csprng.gen::<bool>() {
@@ -51,7 +51,7 @@ fn vec_eq(bench: &mut CtBencher) {
         let mut classes = Vec::new();
 
         // Make 50,000 random pairs of vectors
-        for _ in 0..50_000 {
+        for _ in 0..100_000 {
             // Flip a coin. If true, make a pair of vectors that are equal to each other and put it
             // in the Left distribution
             if csprng.gen::<bool>() {

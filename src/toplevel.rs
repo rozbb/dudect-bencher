@@ -15,6 +15,7 @@ macro_rules! ctbench_main {
         extern crate clap;
         use clap::App;
         use $crate::ctbench::{run_benches_console, BenchName, BenchNameAndFn, BenchOpts};
+        use std::path::PathBuf;
         fn main() {
             let mut benches = Vec::new();
             $(
@@ -27,7 +28,9 @@ macro_rules! ctbench_main {
                 .arg_from_usage("--filter [BENCH]\
                                  'Only run the benchmarks whose name contains BENCH'")
                 .arg_from_usage("--continuous [BENCH]\
-                                'Runs a continuous benchmark on the first bench matching BENCH'")
+                                 'Runs a continuous benchmark on the first bench matching BENCH'")
+                .arg_from_usage("--out [FILE]\
+                                 'Appends raw benchmarking data in CSV format to FILE'")
                 .get_matches();
 
             let mut test_opts = BenchOpts::default();
@@ -35,6 +38,7 @@ macro_rules! ctbench_main {
                                       .or(matches.value_of("filter"))
                                       .map(|s| s.to_string());
             test_opts.continuous = matches.is_present("continuous");
+            test_opts.file_out = matches.value_of("out").map(PathBuf::from);
 
             run_benches_console(test_opts, benches).unwrap();
         }

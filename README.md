@@ -18,8 +18,10 @@ To run a subset of the benchmarks in the above file that have a the substring `a
 `cargo run --release --example ctbench-foo -- --filter ar`.
 
 To run the `vec_eq` benchmark continuously, collecting more samples as it goes along, run `cargo run
---release --example ctbench-foo -- --continuous vec_eq`
+--release --example ctbench-foo -- --continuous vec_eq`.
 
+To run the benchmarks in `ctbench-foo` and get the raw runtimes in CSV format, run `cargo run
+--release --example ctbench-foo -- --out data.csv`.
 
 # Interpreting Output
 

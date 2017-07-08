@@ -1,8 +1,10 @@
 use stats;
 
+use std::fs::OpenOptions;
 use std::io;
 use std::io::prelude::*;
 use std::iter::repeat;
+use std::path::PathBuf;
 use std::time::Instant;
 
 /// Just a static str representing the name of a function
@@ -59,9 +61,11 @@ impl CtBencher {
         // This populates self.samples
         f(self);
 
-        // Replace the old CtCtx with the updated one. We don't need to save the Summary
+        // Replace the old CtCtx with an updated one
         let old_self = ::std::mem::replace(self, CtBencher::default());
         let (summ, new_ctx) = stats::update_ct_stats(old_self.ctx, &old_self.samples);
+
+        self.samples = old_self.samples;
         self.ctx = Some(new_ctx);
 
         summ
@@ -81,10 +85,13 @@ pub struct BenchNameAndFn {
 ///
 /// When `filter` is set and `continuous` is not set, only benchmarks whose names contain the
 /// filter string as a substring will be executed.
+///
+/// `file_out` is optionally the filename where CSV output of raw runtime data should be written
 #[derive(Default)]
 pub struct BenchOpts {
     pub continuous: bool,
     pub filter: Option<String>,
+    pub file_out: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -158,7 +165,18 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
 
     let filter = &opts.filter;
     let filtered_benches = filter_benches(filter, benches);
-    let filtered_names = filtered_benches.iter().map(|t| t.name.clone()).collect();
+    let filtered_names = filtered_benches.iter().map(|b| b.name.clone()).collect();
+
+    // Write the CSV header line to the file
+    if let Some(ref filename) = opts.file_out {
+        let mut file = OpenOptions::new()
+                        .write(true)
+                        .truncate(true)
+                        .create(true)
+                        .open(filename)
+                        .expect(&*format!("Could not open file '{:?}' for writing", filename));
+        file.write(b"benchname,class,runtime").expect("Error writing CSV header to file");
+    }
 
     if opts.continuous {
         callback(BContStart)?;
@@ -171,23 +189,23 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
         }
 
         let mut filtered_benches = filtered_benches;
-        let t = filtered_benches.remove(0);
+        let bench = filtered_benches.remove(0);
         let mut b = CtBencher::default();
-        let name = t.name.clone();
+        let name = bench.name.clone();
 
         loop {
             callback(BWait(name.clone()))?;
-            let msg = run_bench_with_bencher(opts, &t, &mut b);
+            let msg = run_bench_with_bencher(opts, &bench, &mut b);
             callback(BResult(msg))?;
         }
     }
     else {
         callback(BBegin(filtered_names))?;
 
-        for t in filtered_benches {
+        for bench in filtered_benches {
             let mut b = CtBencher::default();
-            callback(BWait(t.name.clone()))?;
-            let msg = run_bench_with_bencher(opts, &t, &mut b);
+            callback(BWait(bench.name.clone()))?;
+            let msg = run_bench_with_bencher(opts, &bench, &mut b);
             callback(BResult(msg))?;
         }
         Ok(())
@@ -213,10 +231,22 @@ fn filter_benches(filter: &Option<String>, bs: Vec<BenchNameAndFn>) -> Vec<Bench
     filtered
 }
 
-fn run_bench_with_bencher(_opts: &BenchOpts, bench: &BenchNameAndFn, b: &mut CtBencher)
+fn run_bench_with_bencher(opts: &BenchOpts, bench: &BenchNameAndFn, b: &mut CtBencher)
         -> MonitorMsg {
     let &BenchNameAndFn {ref name, ref benchfn} = bench;
     let summ = b.go(benchfn);
+
+    if let Some(ref filename) = opts.file_out {
+        let mut file = OpenOptions::new()
+                        .append(true)
+                        .open(filename)
+                        .expect(&*format!("Could not open file '{:?}' for appending", filename));
+
+        for (a, b) in b.samples.0.iter().zip(b.samples.1.iter()) {
+            write!(file, "\n{},0,{}", name.0, a).expect("Error appending to file");
+            write!(file, "\n{},1,{}", name.0, b).expect("Error appending to file");
+        }
+    }
 
     (name.clone(), summ)
 }
