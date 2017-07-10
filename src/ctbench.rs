@@ -1,8 +1,7 @@
 use stats;
 
-use std::fs::OpenOptions;
-use std::io;
-use std::io::prelude::*;
+use std::fs::{File, OpenOptions};
+use std::io::{self, Write};
 use std::iter::repeat;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -41,6 +40,7 @@ type MonitorMsg = (BenchName, stats::CtSummary);
 pub struct CtBencher {
     samples: (Vec<u64>, Vec<u64>),
     ctx: Option<stats::CtCtx>,
+    file_out: Option<File>,
 }
 
 impl CtBencher {
@@ -57,7 +57,8 @@ impl CtBencher {
         self.samples = runner.runtimes;
     }
 
-    pub(crate) fn go<F: FnMut(&mut CtBencher)>(&mut self, mut f: F) -> stats::CtSummary {
+    /// Runs the bench function and returns the CtSummary
+    fn go<F: FnMut(&mut CtBencher)>(&mut self, mut f: F) -> stats::CtSummary {
         // This populates self.samples
         f(self);
 
@@ -65,10 +66,18 @@ impl CtBencher {
         let old_self = ::std::mem::replace(self, CtBencher::default());
         let (summ, new_ctx) = stats::update_ct_stats(old_self.ctx, &old_self.samples);
 
+        // Copy the old stuff back in
         self.samples = old_self.samples;
+        self.file_out = old_self.file_out;
         self.ctx = Some(new_ctx);
 
         summ
+    }
+
+    /// Clears out all sample and contextual data
+    fn clear_data(&mut self) {
+        self.samples = (Vec::new(), Vec::new());
+        self.ctx = None;
     }
 }
 
@@ -167,16 +176,24 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
     let filtered_benches = filter_benches(filter, benches);
     let filtered_names = filtered_benches.iter().map(|b| b.name.clone()).collect();
 
-    // Write the CSV header line to the file
-    if let Some(ref filename) = opts.file_out {
-        let mut file = OpenOptions::new()
-                        .write(true)
-                        .truncate(true)
-                        .create(true)
-                        .open(filename)
-                        .expect(&*format!("Could not open file '{:?}' for writing", filename));
-        file.write(b"benchname,class,runtime").expect("Error writing CSV header to file");
-    }
+    // Write the CSV header line to the file if the file is defined
+    let mut file_out = opts.file_out.as_ref().map(|filename| {
+        OpenOptions::new().write(true)
+                          .truncate(true)
+                          .create(true)
+                          .open(filename)
+                          .expect(&*format!("Could not open file '{:?}' for writing", filename))
+    });
+    file_out.as_mut().map(|f| f.write(b"benchname,class,runtime")
+                               .expect("Error writing CSV header to file"));
+
+
+    // Make a bencher with the optional file output specified
+    let mut b: CtBencher = {
+        let mut d = CtBencher::default();
+        d.file_out = file_out;
+        d
+    };
 
     if opts.continuous {
         callback(BContStart)?;
@@ -188,9 +205,9 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
             }
         }
 
+        // Continuously run the first matched bench we see
         let mut filtered_benches = filtered_benches;
         let bench = filtered_benches.remove(0);
-        let mut b = CtBencher::default();
         let name = bench.name.clone();
 
         loop {
@@ -202,8 +219,10 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
     else {
         callback(BBegin(filtered_names))?;
 
+        // Run different benches
         for bench in filtered_benches {
-            let mut b = CtBencher::default();
+            // Clear the data out from the previous bench, but keep the CSV file open
+            b.clear_data();
             callback(BWait(bench.name.clone()))?;
             let msg = run_bench_with_bencher(opts, &bench, &mut b);
             callback(BResult(msg))?;
@@ -231,22 +250,18 @@ fn filter_benches(filter: &Option<String>, bs: Vec<BenchNameAndFn>) -> Vec<Bench
     filtered
 }
 
-fn run_bench_with_bencher(opts: &BenchOpts, bench: &BenchNameAndFn, b: &mut CtBencher)
-        -> MonitorMsg {
+fn run_bench_with_bencher(_: &BenchOpts, bench: &BenchNameAndFn, b: &mut CtBencher) -> MonitorMsg {
     let &BenchNameAndFn {ref name, ref benchfn} = bench;
     let summ = b.go(benchfn);
 
-    if let Some(ref filename) = opts.file_out {
-        let mut file = OpenOptions::new()
-                        .append(true)
-                        .open(filename)
-                        .expect(&*format!("Could not open file '{:?}' for appending", filename));
-
-        for (a, b) in b.samples.0.iter().zip(b.samples.1.iter()) {
-            write!(file, "\n{},0,{}", name.0, a).expect("Error appending to file");
-            write!(file, "\n{},1,{}", name.0, b).expect("Error appending to file");
+    // Write the runtime samples out
+    let samples_iter = b.samples.0.iter().zip(b.samples.1.iter());
+    b.file_out.as_mut().map(|mut f| {
+        for (x, y) in samples_iter {
+            write!(f, "\n{},0,{}", name.0, x).expect("Error writing data to file");
+            write!(f, "\n{},0,{}", name.0, y).expect("Error writing data to file");
         }
-    }
+    });
 
     (name.clone(), summ)
 }

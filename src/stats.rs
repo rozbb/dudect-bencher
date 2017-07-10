@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::cmp::Ordering::{self, Equal, Greater, Less};
+use std::cmp;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct CtSummary {
@@ -42,7 +42,8 @@ pub struct CtCtx {
 }
 
 // NaNs are smaller than everything
-fn local_cmp(x: f64, y: f64) -> Ordering {
+fn local_cmp(x: f64, y: f64) -> cmp::Ordering {
+    use std::cmp::Ordering::{Equal, Greater, Less};
     if y.is_nan() {
         Greater
     } else if x.is_nan() {
@@ -56,8 +57,8 @@ fn local_cmp(x: f64, y: f64) -> Ordering {
     }
 }
 
-// Helper function: extract a value representing the `pct` percentile of a sorted sample-set, using
-// linear interpolation. If samples are not sorted, return nonsensical value.
+/// Helper function: extract a value representing the `pct` percentile of a sorted sample-set,
+/// using linear interpolation. If samples are not sorted, return nonsensical value.
 fn percentile_of_sorted(sorted_samples: &[f64], pct: f64) -> f64 {
     assert!(!sorted_samples.is_empty());
     if sorted_samples.len() == 1 {
@@ -80,30 +81,30 @@ fn percentile_of_sorted(sorted_samples: &[f64], pct: f64) -> f64 {
     lo + (hi - lo) * d
 }
 
+/// Return the percentiles at f(1), f(2), ..., f(100) of the runtime distribution, where
+/// `f(k) = 1 - 0.5^(10k / 100)`
 pub fn prepare_percentiles(durations: &[u64]) -> Vec<f64> {
     let sorted: Vec<f64> = {
         let mut v = durations.to_vec();
         v.sort();
         v.into_iter().map(|d| d as f64).collect()
     };
-    //println!("sorted == {:?}", sorted);
     let mut percentiles = vec![0f64; 100];
     for i in 0..100 {
         let pct = {
             let exp = (10*(i+1)) as f64 / 100f64;
             1f64 - 0.5f64.powf(exp)
         };
-        //println!("pct == {}", 100f64 * pct);
         percentiles[i] = percentile_of_sorted(&*sorted, 100f64 * pct);
-        //println!("percentiles[i] == {}", percentiles[i]);
     }
 
     percentiles
 }
 
 pub fn update_ct_stats(ctx: Option<CtCtx>,
-                       &(ref left_samples, ref right_samples): &(Vec<u64>, Vec<u64>))
+                       &(ref left_samples,ref right_samples): &(Vec<u64>, Vec<u64>))
         -> (CtSummary, CtCtx) {
+    // Only construct the context (that is, percentiles and test structs) on the first run
     let (mut tests, percentiles) = match ctx {
         Some(c) => (c.tests, c.percentiles),
         None => {
@@ -122,22 +123,6 @@ pub fn update_ct_stats(ctx: Option<CtCtx>,
     let left_samples: Vec<f64> = left_samples.iter().map(|&n| n as f64).collect();
     let right_samples: Vec<f64> = right_samples.iter().map(|&n| n as f64).collect();
 
-    /*
-    update_sizes(&mut tests[0], (&*left_samples, &*right_samples));
-    update_means(&mut tests[0], (&*left_samples, &*right_samples));
-    update_variances(&mut tests[0], (&*left_samples, &*right_samples));
-
-    for (crop_idx, &pct) in percentiles.iter().enumerate() {
-        // TODO: No need to collect. Use an iterator
-        let left_cropped: Vec<f64> = left_samples.iter().filter(|&&x| x < pct).cloned().collect();
-        let right_cropped: Vec<f64> = right_samples.iter().filter(|&&x| x < pct).cloned().collect();
-        let test = &mut tests[crop_idx+1];
-
-        update_sizes(test, (&*left_cropped, &*right_cropped));
-        update_means(test, (&*left_cropped, &*right_cropped));
-        update_variances(test, (&*left_cropped, &*right_cropped));
-    }
-    */
     for &left_sample in left_samples.iter() {
         update_test_left(&mut tests[0], left_sample);
     }
@@ -146,7 +131,6 @@ pub fn update_ct_stats(ctx: Option<CtCtx>,
     }
 
     for (test, &pct) in tests.iter_mut().skip(1).zip(percentiles.iter()) {
-        // TODO: No need to collect. Use an iterator
         let left_cropped = left_samples.iter().filter(|&&x| x < pct);
         let right_cropped = right_samples.iter().filter(|&&x| x < pct);
 
@@ -158,13 +142,6 @@ pub fn update_ct_stats(ctx: Option<CtCtx>,
         }
     }
 
-    /*
-    for test in tests.iter() {
-        println!("test == {:?}", test);
-        println!("t == {}", compute_t(test));
-    }
-    */
-
     let (max_t, max_tau, sample_size) = {
         // Get the test with the maximum t
         let max_test = tests.iter()
@@ -174,12 +151,8 @@ pub fn update_ct_stats(ctx: Option<CtCtx>,
         let max_t = compute_t(&max_test);
         let max_tau = max_t / (sample_size as f64).sqrt();
 
-        //println!("max_test == {:?}", max_test);
         (max_t, max_tau, sample_size)
     };
-
-    //println!("with t == {}", max_t);
-    //println!("max_tau == {}", max_tau);
 
     let new_ctx = CtCtx {
         tests,
@@ -219,33 +192,3 @@ fn update_test_right(test: &mut CtTest, datum: f64) {
     test.means.1 += diff / (test.sizes.1 as f64);
     test.sq_diffs.1 += diff * (datum - test.means.1);
 }
-
-/*
-//
-fn update_sizes(test: &mut CtTest, data: (&[f64], &[f64])) {
-    test.sizes.0 += data.0.len();
-    test.sizes.1 += data.1.len();
-}
-
-fn update_means(test: &mut CtTest, data: (&[f64], &[f64])) {
-    let n = test.sizes.0 as f64;;
-    let curr_mean = test.means.0;
-    test.means.0 = data.0.iter().fold(curr_mean, |acc, &x| acc + (x - acc)/n);
-
-    let n = test.sizes.1 as f64;
-    let curr_mean = test.means.1;
-    test.means.1 = data.1.iter().fold(curr_mean, |acc, &x| acc + (x - acc)/n);
-}
-
-fn update_variances(test: &mut CtTest, data: (&[f64], &[f64])) {
-    let n1 = (test.sizes.0 - 1) as f64;
-    let mean = test.means.0;
-    let curr_var = test.vars.0;
-    test.vars.0 = data.0.iter().map(|&x| x - mean).fold(curr_var, |acc, diff| acc + (diff * diff)) / n1;
-
-    let n1 = (test.sizes.1 - 1) as f64;
-    let mean = test.means.1;
-    let curr_var = test.vars.1;
-    test.vars.1 = data.1.iter().map(|&x| x - mean).fold(curr_var, |acc, diff| acc + (diff * diff)) / n1;
-}
-*/
