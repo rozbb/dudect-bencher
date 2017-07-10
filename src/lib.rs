@@ -52,6 +52,7 @@
 // TODO: Make determinstic benches with provided rand generator
 
 extern crate clap;
+extern crate ctrlc;
 
 pub mod ctbench;
 mod stats;

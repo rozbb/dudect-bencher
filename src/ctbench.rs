@@ -4,7 +4,12 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::iter::repeat;
 use std::path::PathBuf;
+use std::process;
+use std::sync::atomic::{self, AtomicBool};
+use std::sync::Arc;
 use std::time::Instant;
+
+use ctrlc;
 
 /// Just a static str representing the name of a function
 #[derive(Clone)]
@@ -142,7 +147,6 @@ impl ConsoleBenchState {
     }
 }
 
-
 /// Runs the given benches under the given options and prints the output to the console
 pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchNameAndFn>) -> io::Result<()> {
 
@@ -166,6 +170,17 @@ pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchNameAndFn>) -> io:
 
     try!(run_benches(&opts, benches, |x| callback(&x, &mut st)));
     st.write_run_finish()
+}
+
+/// Returns an atomic bool that indicates whether Ctrl-C was pressed
+fn setup_kill_bit() -> Arc<AtomicBool> {
+    let x = Arc::new(AtomicBool::new(false));
+    let y = x.clone();
+
+    ctrlc::set_handler(move || {println!("IN HANDLER"); y.store(true, atomic::Ordering::SeqCst)})
+        .expect("Error setting Ctrl-C handler");
+
+    x
 }
 
 fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: F)
@@ -205,6 +220,9 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
             }
         }
 
+        // Get a bit that tells us when we've been killed
+        let kill_bit = setup_kill_bit();
+
         // Continuously run the first matched bench we see
         let mut filtered_benches = filtered_benches;
         let bench = filtered_benches.remove(0);
@@ -214,6 +232,11 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
             callback(BWait(name.clone()))?;
             let msg = run_bench_with_bencher(opts, &bench, &mut b);
             callback(BResult(msg))?;
+
+            // Check if the progrma has been killed. If so, exit
+            if kill_bit.load(atomic::Ordering::SeqCst) {
+                process::exit(0);
+            }
         }
     }
     else {
