@@ -8,8 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! This crate implements the [DudeCT](https://eprint.iacr.org/2016/1123.pdf) statistical methods
-//! for testing constant-time functions. It is based loosely off of the
+//! This crate implements the [DudeCT](https://eprint.iacr.org/2016/1123) statistical methods for
+//! testing constant-time functions. It is based loosely off of the
 //! [`bencher`](https://github.com/bluss/bencher) crate.
 //!
 //! The core idea of the DudeCT test is to construct two sets of inputs for the function in
@@ -46,16 +46,15 @@
 //! constant-time, since there may be other input distributions under which the function behaves
 //! significantly differently.
 
-// TODO: Make an interrupt handler to flush file_out if killed
 // TODO: More comments
 // TODO: Do "higher order preprocessing" from the paper
-// TODO: Make determinstic benches with provided rand generator
 
 extern crate clap;
 extern crate ctrlc;
+extern crate rand;
 
 pub mod ctbench;
 mod stats;
-pub mod toplevel;
+mod toplevel;
 
-pub use ctbench::{Class, CtBencher};
+pub use ctbench::{BenchRng, Class, CtRunner};

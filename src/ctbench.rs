@@ -10,9 +10,10 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use ctrlc;
+use rand::{thread_rng, ChaChaRng, SeedableRng, Rng};
 
 /// Just a static str representing the name of a function
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct BenchName(pub &'static str);
 
 impl BenchName {
@@ -26,57 +27,81 @@ impl BenchName {
     }
 }
 
-/// A function that is to be benchmarked. This crate only supports statically-defined functions.
-pub type BenchFn = fn(&mut CtBencher);
+/// A random number generator implementing [`rand::SeedableRng`](/rand/trait.SeedableRng.html).
+/// This is given to every benchmarking function to use as a source of randomness.
+pub type BenchRng = ChaChaRng;
 
+/// A function that is to be benchmarked. This crate only supports statically-defined functions.
+pub type BenchFn = fn(&mut CtRunner, &mut BenchRng);
+
+// TODO: Consider giving this a lifetime so we don't have to copy names and vecs into it
 #[derive(Clone)]
 enum BenchEvent {
     BContStart,
     BBegin(Vec<BenchName>),
     BWait(BenchName),
     BResult(MonitorMsg),
+    BSeed(Vec<u32>, BenchName),
 }
 
 type MonitorMsg = (BenchName, stats::CtSummary);
 
 /// CtBencher is the primary interface for benchmarking. All setup for function inputs should be
 /// doen within the closure supplied to the `iter` method.
-#[derive(Default)]
-pub struct CtBencher {
+struct CtBencher {
     samples: (Vec<u64>, Vec<u64>),
     ctx: Option<stats::CtCtx>,
     file_out: Option<File>,
+    rng: BenchRng,
 }
 
 impl CtBencher {
-    /// Iterates the supplied closure
-    ///
-    /// If `continuous` is not set, this will run the supplied closure exactly once, essentially
-    /// doing nothing extra.
-    ///
-    /// If `continuous` is set, this will run supplied closure indefinitely, accumulating the
-    /// statistical results obtained from the inner `CtRunner::run_one` calls.
-    pub fn iter<S, F: Fn(&mut CtRunner) -> S>(&mut self, inner: F) {
-        let mut runner = CtRunner::default();
-        inner(&mut runner);
-        self.samples = runner.runtimes;
+    /// Creates and returns a new empty `CtBencher` whose `BenchRng` is unseeded
+    pub fn new_unseeded() -> CtBencher {
+        CtBencher {
+            samples: (Vec::new(), Vec::new()),
+            ctx: None,
+            file_out: None,
+            rng: BenchRng::new_unseeded(),
+        }
     }
 
     /// Runs the bench function and returns the CtSummary
-    fn go<F: FnMut(&mut CtBencher)>(&mut self, mut f: F) -> stats::CtSummary {
+    fn go(&mut self, f: &BenchFn) -> stats::CtSummary {
         // This populates self.samples
-        f(self);
+        let mut runner = CtRunner::default();
+        f(&mut runner, &mut self.rng);
+        self.samples = runner.runtimes;
 
         // Replace the old CtCtx with an updated one
-        let old_self = ::std::mem::replace(self, CtBencher::default());
+        let old_self = ::std::mem::replace(self, CtBencher::new_unseeded());
         let (summ, new_ctx) = stats::update_ct_stats(old_self.ctx, &old_self.samples);
 
         // Copy the old stuff back in
         self.samples = old_self.samples;
         self.file_out = old_self.file_out;
         self.ctx = Some(new_ctx);
+        self.rng = old_self.rng;
 
         summ
+    }
+
+    /// Returns a random seed
+    fn rand_seed() -> Vec<u32> {
+        let mut rng = thread_rng();
+        let mut seed = vec![0u32; 4];
+        seed[0] = rng.gen();
+        seed[1] = rng.gen();
+        seed[2] = rng.gen();
+        seed[3] = rng.gen();
+
+        seed
+    }
+
+
+    /// Reseeds the internal RNG with the given seed
+    pub fn seed_with(&mut self, seed: &[u32]) {
+        self.rng = BenchRng::from_seed(seed);
     }
 
     /// Clears out all sample and contextual data
@@ -87,8 +112,9 @@ impl CtBencher {
 }
 
 /// Represents a single benchmark to conduct
-pub struct BenchNameAndFn {
+pub struct BenchMetadata {
     pub name: BenchName,
+    pub seed: Option<Vec<u32>>,
     pub benchfn: BenchFn,
 }
 
@@ -125,6 +151,12 @@ impl ConsoleBenchState {
         self.write_plain(&format!("bench {} ... ", name))
     }
 
+    fn write_seed(&mut self, seed: &[u32], name: &BenchName) -> io::Result<()> {
+        let name = name.padded(self.max_name_len);
+        self.write_plain(&format!("bench {} seeded with [0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}]\n",
+                                  name, seed[0], seed[1], seed[2], seed[3]))
+    }
+
     fn write_run_start(&mut self, len: usize) -> io::Result<()> {
         let noun = if len != 1 {
             "benches"
@@ -148,7 +180,7 @@ impl ConsoleBenchState {
 }
 
 /// Runs the given benches under the given options and prints the output to the console
-pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchNameAndFn>) -> io::Result<()> {
+pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchMetadata>) -> io::Result<()> {
 
     // TODO: Consider making this do screen updates in continuous mode
     // TODO: Consider making this run in its own thread
@@ -159,9 +191,9 @@ pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchNameAndFn>) -> io:
             BenchEvent::BWait(ref b) => st.write_bench_start(b),
             BenchEvent::BResult(msg) => {
                 let (_, summ) = msg;
-                try!(st.write_result(&summ));
-                Ok(())
-            }
+                st.write_result(&summ)
+            },
+            BenchEvent::BSeed(ref seed, ref name) => st.write_seed(&*seed, name),
         }
     }
 
@@ -177,13 +209,13 @@ fn setup_kill_bit() -> Arc<AtomicBool> {
     let x = Arc::new(AtomicBool::new(false));
     let y = x.clone();
 
-    ctrlc::set_handler(move || {println!("IN HANDLER"); y.store(true, atomic::Ordering::SeqCst)})
+    ctrlc::set_handler(move || { y.store(true, atomic::Ordering::SeqCst) })
         .expect("Error setting Ctrl-C handler");
 
     x
 }
 
-fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: F)
+fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchMetadata>, mut callback: F)
         -> io::Result<()> where F: FnMut(BenchEvent) -> io::Result<()> {
     use self::BenchEvent::*;
 
@@ -202,10 +234,9 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
     file_out.as_mut().map(|f| f.write(b"benchname,class,runtime")
                                .expect("Error writing CSV header to file"));
 
-
     // Make a bencher with the optional file output specified
-    let mut b: CtBencher = {
-        let mut d = CtBencher::default();
+    let mut cb: CtBencher = {
+        let mut d = CtBencher::new_unseeded();
         d.file_out = file_out;
         d
     };
@@ -226,14 +257,17 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
         // Continuously run the first matched bench we see
         let mut filtered_benches = filtered_benches;
         let bench = filtered_benches.remove(0);
-        let name = bench.name.clone();
+
+        let seed = bench.seed.unwrap_or_else(|| CtBencher::rand_seed());
+        cb.seed_with(&*seed);
+        callback(BSeed(seed, bench.name))?;
 
         loop {
-            callback(BWait(name.clone()))?;
-            let msg = run_bench_with_bencher(opts, &bench, &mut b);
+            callback(BWait(bench.name))?;
+            let msg = run_bench_with_bencher(&bench.name, &bench.benchfn, &mut cb);
             callback(BResult(msg))?;
 
-            // Check if the progrma has been killed. If so, exit
+            // Check if the program has been killed. If so, exit
             if kill_bit.load(atomic::Ordering::SeqCst) {
                 process::exit(0);
             }
@@ -245,16 +279,36 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchNameAndFn>, mut callback: 
         // Run different benches
         for bench in filtered_benches {
             // Clear the data out from the previous bench, but keep the CSV file open
-            b.clear_data();
-            callback(BWait(bench.name.clone()))?;
-            let msg = run_bench_with_bencher(opts, &bench, &mut b);
+            cb.clear_data();
+
+            let seed =  bench.seed.unwrap_or_else(|| CtBencher::rand_seed());
+            cb.seed_with(&*seed);
+            callback(BSeed(seed, bench.name))?;
+
+            callback(BWait(bench.name))?;
+            let msg = run_bench_with_bencher(&bench.name, &bench.benchfn, &mut cb);
             callback(BResult(msg))?;
         }
         Ok(())
     }
 }
 
-fn filter_benches(filter: &Option<String>, bs: Vec<BenchNameAndFn>) -> Vec<BenchNameAndFn> {
+fn run_bench_with_bencher(name: &BenchName, benchfn: &BenchFn, cb: &mut CtBencher) -> MonitorMsg {
+    let summ = cb.go(benchfn);
+
+    // Write the runtime samples out
+    let samples_iter = cb.samples.0.iter().zip(cb.samples.1.iter());
+    cb.file_out.as_mut().map(|mut f| {
+        for (x, y) in samples_iter {
+            write!(f, "\n{},0,{}", name.0, x).expect("Error writing data to file");
+            write!(f, "\n{},0,{}", name.0, y).expect("Error writing data to file");
+        }
+    });
+
+    (name.clone(), summ)
+}
+
+fn filter_benches(filter: &Option<String>, bs: Vec<BenchMetadata>) -> Vec<BenchMetadata> {
     let mut filtered = bs;
 
     // Remove benches that don't match the filter
@@ -271,22 +325,6 @@ fn filter_benches(filter: &Option<String>, bs: Vec<BenchNameAndFn>) -> Vec<Bench
     filtered.sort_by(|b1, b2| b1.name.0.cmp(&b2.name.0));
 
     filtered
-}
-
-fn run_bench_with_bencher(_: &BenchOpts, bench: &BenchNameAndFn, b: &mut CtBencher) -> MonitorMsg {
-    let &BenchNameAndFn {ref name, ref benchfn} = bench;
-    let summ = b.go(benchfn);
-
-    // Write the runtime samples out
-    let samples_iter = b.samples.0.iter().zip(b.samples.1.iter());
-    b.file_out.as_mut().map(|mut f| {
-        for (x, y) in samples_iter {
-            write!(f, "\n{},0,{}", name.0, x).expect("Error writing data to file");
-            write!(f, "\n{},0,{}", name.0, y).expect("Error writing data to file");
-        }
-    });
-
-    (name.clone(), summ)
 }
 
 
