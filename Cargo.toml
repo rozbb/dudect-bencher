@@ -5,7 +5,7 @@ version = "0.3.0"
 
 license = "MIT"
 
-repository = "https://github.com/doomrobo/dudect-bencher/"
+repository = "https://github.com/rozbb/dudect-bencher/"
 documentation = "https://docs.rs/dudect-bencher/"
 
 description = "An implementation of the DudeCT constant-time function tester"
