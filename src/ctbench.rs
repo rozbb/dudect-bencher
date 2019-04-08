@@ -63,7 +63,7 @@ impl CtBencher {
             samples: (Vec::new(), Vec::new()),
             ctx: None,
             file_out: None,
-            rng: BenchRng::new_unseeded(),
+            rng: BenchRng::seed_from_u64(0u64),
         }
     }
 

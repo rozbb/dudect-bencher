@@ -52,10 +52,9 @@ macro_rules! ctbench_main_with_seeds {
         fn main() {
             let mut benches = Vec::new();
             $(
-                let seed_vec: Option<Vec<u32>> = $seed.map(|s: [u32; 4]| s.to_vec());
                 benches.push(BenchMetadata {
                     name: BenchName(stringify!($function)),
-                    seed: seed_vec,
+                    seed: $seed,
                     benchfn: $function,
                 });
             )+

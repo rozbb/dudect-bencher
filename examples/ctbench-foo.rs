@@ -3,7 +3,7 @@ extern crate dudect_bencher;
 extern crate rand;
 
 use dudect_bencher::{BenchRng, Class, CtRunner};
-use rand::Rng;
+use rand::prelude::*;
 
 // Return a random vector of length len
 fn rand_vec(len: usize, rng: &mut BenchRng) -> Vec<u8> {
@@ -72,7 +72,7 @@ fn vec_eq(runner: &mut CtRunner, rng: &mut BenchRng) {
 
 // Expand the main function to include benches for arith and vec_eq
 ctbench_main_with_seeds!(
-    (arith, Some([0x6b6c816d, 0x395d3f8e, 0x798e4828, 0xfbb23c0f])),
+    (arith, Some(0x6b6c816d)),
     (vec_eq, None)
 );
 // Alternatively, for no explicit seeds, you can use
