@@ -10,7 +10,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use ctrlc;
-use rand::{thread_rng, ChaChaRng, SeedableRng, Rng};
+use rand::prelude::*;
+use rand_chacha::ChaChaRng;
 
 /// Just a static str representing the name of a function
 #[derive(Copy, Clone)]
@@ -41,7 +42,7 @@ enum BenchEvent {
     BBegin(Vec<BenchName>),
     BWait(BenchName),
     BResult(MonitorMsg),
-    BSeed(Vec<u32>, BenchName),
+    BSeed(u64, BenchName),
 }
 
 type MonitorMsg = (BenchName, stats::CtSummary);
@@ -87,21 +88,16 @@ impl CtBencher {
     }
 
     /// Returns a random seed
-    fn rand_seed() -> Vec<u32> {
+    fn rand_seed() -> u64 {
         let mut rng = thread_rng();
-        let mut seed = vec![0u32; 4];
-        seed[0] = rng.gen();
-        seed[1] = rng.gen();
-        seed[2] = rng.gen();
-        seed[3] = rng.gen();
-
-        seed
+        
+        rng.next_u64()
     }
 
 
     /// Reseeds the internal RNG with the given seed
-    pub fn seed_with(&mut self, seed: &[u32]) {
-        self.rng = BenchRng::from_seed(seed);
+    pub fn seed_with(&mut self, seed: &u64) {
+        self.rng = BenchRng::seed_from_u64(*seed);
     }
 
     /// Clears out all sample and contextual data
@@ -114,7 +110,7 @@ impl CtBencher {
 /// Represents a single benchmark to conduct
 pub struct BenchMetadata {
     pub name: BenchName,
-    pub seed: Option<Vec<u32>>,
+    pub seed: Option<u64>,
     pub benchfn: BenchFn,
 }
 
@@ -151,10 +147,10 @@ impl ConsoleBenchState {
         self.write_plain(&format!("bench {} ... ", name))
     }
 
-    fn write_seed(&mut self, seed: &[u32], name: &BenchName) -> io::Result<()> {
+    fn write_seed(&mut self, seed: &u64, name: &BenchName) -> io::Result<()> {
         let name = name.padded(self.max_name_len);
-        self.write_plain(&format!("bench {} seeded with [0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}]\n",
-                                  name, seed[0], seed[1], seed[2], seed[3]))
+        self.write_plain(&format!("bench {} seeded with [0x{:x}]\n",
+                                  name, seed))
     }
 
     fn write_run_start(&mut self, len: usize) -> io::Result<()> {
@@ -193,7 +189,7 @@ pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchMetadata>) -> io::
                 let (_, summ) = msg;
                 st.write_result(&summ)
             },
-            BenchEvent::BSeed(ref seed, ref name) => st.write_seed(&*seed, name),
+            BenchEvent::BSeed(ref seed, ref name) => st.write_seed(seed, name),
         }
     }
 
@@ -259,7 +255,7 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchMetadata>, mut callback: F
         let bench = filtered_benches.remove(0);
 
         let seed = bench.seed.unwrap_or_else(|| CtBencher::rand_seed());
-        cb.seed_with(&*seed);
+        cb.seed_with(&seed);
         callback(BSeed(seed, bench.name))?;
 
         loop {
@@ -282,7 +278,7 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchMetadata>, mut callback: F
             cb.clear_data();
 
             let seed =  bench.seed.unwrap_or_else(|| CtBencher::rand_seed());
-            cb.seed_with(&*seed);
+            cb.seed_with(&seed);
             callback(BSeed(seed, bench.name))?;
 
             callback(BWait(bench.name))?;

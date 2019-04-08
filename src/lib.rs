@@ -52,6 +52,7 @@
 extern crate clap;
 extern crate ctrlc;
 extern crate rand;
+extern crate rand_chacha;
 
 pub mod ctbench;
 mod stats;
