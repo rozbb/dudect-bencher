@@ -147,7 +147,7 @@ impl ConsoleBenchState {
         self.write_plain(&format!("bench {} ... ", name))
     }
 
-    fn write_seed(&mut self, seed: &u64, name: &BenchName) -> io::Result<()> {
+    fn write_seed(&mut self, seed: u64, name: &BenchName) -> io::Result<()> {
         let name = name.padded(self.max_name_len);
         self.write_plain(&format!("bench {} seeded with [0x{:x}]\n",
                                   name, seed))
@@ -189,7 +189,7 @@ pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchMetadata>) -> io::
                 let (_, summ) = msg;
                 st.write_result(&summ)
             },
-            BenchEvent::BSeed(ref seed, ref name) => st.write_seed(seed, name),
+            BenchEvent::BSeed(ref seed, ref name) => st.write_seed(*seed, name),
         }
     }
 
@@ -294,7 +294,7 @@ fn run_bench_with_bencher(name: &BenchName, benchfn: &BenchFn, cb: &mut CtBenche
 
     // Write the runtime samples out
     let samples_iter = cb.samples.0.iter().zip(cb.samples.1.iter());
-    cb.file_out.as_mut().map(|mut f| {
+    cb.file_out.as_mut().map(|f| {
         for (x, y) in samples_iter {
             write!(f, "\n{},0,{}", name.0, x).expect("Error writing data to file");
             write!(f, "\n{},0,{}", name.0, y).expect("Error writing data to file");
