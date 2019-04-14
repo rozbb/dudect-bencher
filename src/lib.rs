@@ -49,11 +49,6 @@
 // TODO: More comments
 // TODO: Do "higher order preprocessing" from the paper
 
-extern crate clap;
-extern crate ctrlc;
-extern crate rand;
-extern crate rand_chacha;
-
 pub mod ctbench;
 mod stats;
 mod toplevel;

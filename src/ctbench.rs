@@ -1,16 +1,17 @@
-use stats;
+use crate::stats;
 
-use std::fs::{File, OpenOptions};
-use std::io::{self, Write};
-use std::iter::repeat;
-use std::path::PathBuf;
-use std::process;
-use std::sync::atomic::{self, AtomicBool};
-use std::sync::Arc;
-use std::time::Instant;
+use std::{
+    fs::{File, OpenOptions},
+    io::{self, Write},
+    iter::repeat,
+    path::PathBuf,
+    process,
+    sync::{Arc, atomic::{self, AtomicBool}},
+    time::Instant,
+};
 
 use ctrlc;
-use rand::prelude::*;
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 /// Just a static str representing the name of a function
@@ -57,8 +58,8 @@ struct CtBencher {
 }
 
 impl CtBencher {
-    /// Creates and returns a new empty `CtBencher` whose `BenchRng` is unseeded
-    pub fn new_unseeded() -> CtBencher {
+    /// Creates and returns a new empty `CtBencher` whose `BenchRng` is zero-seeded
+    pub fn new() -> CtBencher {
         CtBencher {
             samples: (Vec::new(), Vec::new()),
             ctx: None,
@@ -75,7 +76,7 @@ impl CtBencher {
         self.samples = runner.runtimes;
 
         // Replace the old CtCtx with an updated one
-        let old_self = ::std::mem::replace(self, CtBencher::new_unseeded());
+        let old_self = ::std::mem::replace(self, CtBencher::new());
         let (summ, new_ctx) = stats::update_ct_stats(old_self.ctx, &old_self.samples);
 
         // Copy the old stuff back in
@@ -89,15 +90,13 @@ impl CtBencher {
 
     /// Returns a random seed
     fn rand_seed() -> u64 {
-        let mut rng = thread_rng();
-        
-        rng.next_u64()
+        rand::thread_rng().gen()
     }
 
 
     /// Reseeds the internal RNG with the given seed
-    pub fn seed_with(&mut self, seed: &u64) {
-        self.rng = BenchRng::seed_from_u64(*seed);
+    pub fn seed_with(&mut self, seed: u64) {
+        self.rng = BenchRng::seed_from_u64(seed);
     }
 
     /// Clears out all sample and contextual data
@@ -132,7 +131,8 @@ pub struct BenchOpts {
 
 #[derive(Default)]
 struct ConsoleBenchState {
-    max_name_len: usize, // Number of columns to fill when aligning names
+    // Number of columns to fill when aligning names
+    max_name_len: usize,
 }
 
 impl ConsoleBenchState {
@@ -149,8 +149,7 @@ impl ConsoleBenchState {
 
     fn write_seed(&mut self, seed: u64, name: &BenchName) -> io::Result<()> {
         let name = name.padded(self.max_name_len);
-        self.write_plain(&format!("bench {} seeded with [0x{:x}]\n",
-                                  name, seed))
+        self.write_plain(&format!("bench {} seeded with 0x{:x}\n", name, seed))
     }
 
     fn write_run_start(&mut self, len: usize) -> io::Result<()> {
@@ -189,14 +188,14 @@ pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchMetadata>) -> io::
                 let (_, summ) = msg;
                 st.write_result(&summ)
             },
-            BenchEvent::BSeed(ref seed, ref name) => st.write_seed(*seed, name),
+            BenchEvent::BSeed(seed, ref name) => st.write_seed(seed, name),
         }
     }
 
     let mut st = ConsoleBenchState::default();
     st.max_name_len = benches.iter().map(|t| t.name.0.len()).max().unwrap_or(0);
 
-    try!(run_benches(&opts, benches, |x| callback(&x, &mut st)));
+    run_benches(&opts, benches, |x| callback(&x, &mut st))?;
     st.write_run_finish()
 }
 
@@ -232,7 +231,7 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchMetadata>, mut callback: F
 
     // Make a bencher with the optional file output specified
     let mut cb: CtBencher = {
-        let mut d = CtBencher::new_unseeded();
+        let mut d = CtBencher::new();
         d.file_out = file_out;
         d
     };
@@ -254,8 +253,9 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchMetadata>, mut callback: F
         let mut filtered_benches = filtered_benches;
         let bench = filtered_benches.remove(0);
 
+        // If a seed was specified for this bench, use it. Otherwise, use a random seed
         let seed = bench.seed.unwrap_or_else(|| CtBencher::rand_seed());
-        cb.seed_with(&seed);
+        cb.seed_with(seed);
         callback(BSeed(seed, bench.name))?;
 
         loop {
@@ -277,8 +277,9 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchMetadata>, mut callback: F
             // Clear the data out from the previous bench, but keep the CSV file open
             cb.clear_data();
 
+            // If a seed was specified for this bench, use it. Otherwise, use a random seed
             let seed =  bench.seed.unwrap_or_else(|| CtBencher::rand_seed());
-            cb.seed_with(&seed);
+            cb.seed_with(seed);
             callback(BSeed(seed, bench.name))?;
 
             callback(BWait(bench.name))?;

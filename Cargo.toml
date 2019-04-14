@@ -1,7 +1,8 @@
 [package]
-authors = ["Michael Rosenberg", "42micro@gmail.com"]
+authors = ["Michael Rosenberg", "micro@fastmail.com"]
 name = "dudect-bencher"
 version = "0.3.0"
+edition = "2018"
 
 license = "MIT"
 
@@ -15,8 +16,8 @@ keywords = ["constant", "constant-time", "crypto", "benchmark"]
 [dependencies]
 clap = "2.25"
 ctrlc = "3.0"
-rand = "0.6.5"
-rand_chacha = "0.1.1"
+rand = "0.6"
+rand_chacha = "0.1"
 
 [dev-dependencies]
-rand = "0.6.5"
+rand = "0.6"

@@ -1,9 +1,5 @@
-#[macro_use]
-extern crate dudect_bencher;
-extern crate rand;
-
-use dudect_bencher::{BenchRng, Class, CtRunner};
-use rand::prelude::*;
+use dudect_bencher::{ctbench_main_with_seeds, BenchRng, Class, CtRunner};
+use rand::{Rng, RngCore};
 
 // Return a random vector of length len
 fn rand_vec(len: usize, rng: &mut BenchRng) -> Vec<u8> {
