@@ -52,9 +52,7 @@ fn local_cmp(x: f64, y: f64) -> cmp::Ordering {
     use std::cmp::Ordering::{Equal, Greater, Less};
     if y.is_nan() {
         Greater
-    } else if x.is_nan() {
-        Less
-    } else if x < y {
+    } else if x.is_nan() || x < y {
         Less
     } else if x == y {
         Equal
@@ -70,13 +68,10 @@ fn percentile_of_sorted(sorted_samples: &[f64], pct: f64) -> f64 {
     if sorted_samples.len() == 1 {
         return sorted_samples[0];
     }
-    let zero: f64 = 0.0;
+    let zero = 0f64;
     assert!(zero <= pct);
     let hundred = 100f64;
     assert!(pct <= hundred);
-    if pct == hundred {
-        return sorted_samples[sorted_samples.len() - 1];
-    }
     let length = (sorted_samples.len() - 1) as f64;
     let rank = (pct / hundred) * length;
     let lrank = rank.floor();
@@ -95,16 +90,17 @@ pub fn prepare_percentiles(durations: &[u64]) -> Vec<f64> {
         v.sort();
         v.into_iter().map(|d| d as f64).collect()
     };
-    let mut percentiles = vec![0f64; 100];
-    for i in 0..100 {
-        let pct = {
-            let exp = (10 * (i + 1)) as f64 / 100f64;
-            1f64 - 0.5f64.powf(exp)
-        };
-        percentiles[i] = percentile_of_sorted(&*sorted, 100f64 * pct);
-    }
 
-    percentiles
+    // Collect all the percentile values
+    (0..100)
+        .map(|i| {
+            let pct = {
+                let exp = f64::from(10 * (i + 1)) / 100f64;
+                1f64 - 0.5f64.powf(exp)
+            };
+            percentile_of_sorted(&sorted, 100f64 * pct)
+        })
+        .collect()
 }
 
 pub fn update_ct_stats(

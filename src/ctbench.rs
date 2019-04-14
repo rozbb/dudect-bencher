@@ -72,7 +72,7 @@ impl CtBencher {
     }
 
     /// Runs the bench function and returns the CtSummary
-    fn go(&mut self, f: &BenchFn) -> stats::CtSummary {
+    fn go(&mut self, f: BenchFn) -> stats::CtSummary {
         // This populates self.samples
         let mut runner = CtRunner::default();
         f(&mut runner, &mut self.rng);
@@ -215,7 +215,7 @@ where
 
     let filter = &opts.filter;
     let filtered_benches = filter_benches(filter, benches);
-    let filtered_names = filtered_benches.iter().map(|b| b.name.clone()).collect();
+    let filtered_names = filtered_benches.iter().map(|b| b.name).collect();
 
     // Write the CSV header line to the file if the file is defined
     let mut file_out = opts.file_out.as_ref().map(|filename| {
@@ -244,10 +244,10 @@ where
     if opts.continuous {
         callback(BContStart)?;
 
-        if filtered_benches.len() == 0 {
-            match filter {
-                &Some(ref f) => panic!("No benchmark matching '{}' was found", f),
-                &None => return Ok(()),
+        if filtered_benches.is_empty() {
+            match *filter {
+                Some(ref f) => panic!("No benchmark matching '{}' was found", f),
+                None => return Ok(()),
             }
         }
 
@@ -259,13 +259,13 @@ where
         let bench = filtered_benches.remove(0);
 
         // If a seed was specified for this bench, use it. Otherwise, use a random seed
-        let seed = bench.seed.unwrap_or_else(|| CtBencher::rand_seed());
+        let seed = bench.seed.unwrap_or_else(CtBencher::rand_seed);
         cb.seed_with(seed);
         callback(BSeed(seed, bench.name))?;
 
         loop {
             callback(BWait(bench.name))?;
-            let msg = run_bench_with_bencher(&bench.name, &bench.benchfn, &mut cb);
+            let msg = run_bench_with_bencher(&bench.name, bench.benchfn, &mut cb);
             callback(BResult(msg))?;
 
             // Check if the program has been killed. If so, exit
@@ -282,40 +282,40 @@ where
             cb.clear_data();
 
             // If a seed was specified for this bench, use it. Otherwise, use a random seed
-            let seed = bench.seed.unwrap_or_else(|| CtBencher::rand_seed());
+            let seed = bench.seed.unwrap_or_else(CtBencher::rand_seed);
             cb.seed_with(seed);
             callback(BSeed(seed, bench.name))?;
 
             callback(BWait(bench.name))?;
-            let msg = run_bench_with_bencher(&bench.name, &bench.benchfn, &mut cb);
+            let msg = run_bench_with_bencher(&bench.name, bench.benchfn, &mut cb);
             callback(BResult(msg))?;
         }
         Ok(())
     }
 }
 
-fn run_bench_with_bencher(name: &BenchName, benchfn: &BenchFn, cb: &mut CtBencher) -> MonitorMsg {
+fn run_bench_with_bencher(name: &BenchName, benchfn: BenchFn, cb: &mut CtBencher) -> MonitorMsg {
     let summ = cb.go(benchfn);
 
     // Write the runtime samples out
     let samples_iter = cb.samples.0.iter().zip(cb.samples.1.iter());
-    cb.file_out.as_mut().map(|f| {
+    if let Some(f) = cb.file_out.as_mut() {
         for (x, y) in samples_iter {
             write!(f, "\n{},0,{}", name.0, x).expect("Error writing data to file");
             write!(f, "\n{},0,{}", name.0, y).expect("Error writing data to file");
         }
-    });
+    };
 
-    (name.clone(), summ)
+    (*name, summ)
 }
 
 fn filter_benches(filter: &Option<String>, bs: Vec<BenchMetadata>) -> Vec<BenchMetadata> {
     let mut filtered = bs;
 
     // Remove benches that don't match the filter
-    filtered = match filter {
-        &None => filtered,
-        &Some(ref filter) => filtered
+    filtered = match *filter {
+        None => filtered,
+        Some(ref filter) => filtered
             .into_iter()
             .filter(|b| b.name.0.contains(&filter[..]))
             .collect(),
@@ -367,7 +367,7 @@ impl CtRunner {
 
         let runtime = {
             let dur = end.duration_since(start);
-            dur.as_secs() * 1_000_000_000 + (dur.subsec_nanos() as u64)
+            dur.as_secs() * 1_000_000_000 + u64::from(dur.subsec_nanos())
         };
 
         match class {
