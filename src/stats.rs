@@ -19,12 +19,18 @@ pub struct CtSummary {
 
 impl CtSummary {
     pub fn fmt(&self) -> String {
-        let &CtSummary { max_t, max_tau, sample_size } = self;
-        format!("n == {:+0.3}M, max t = {:+0.5}, max tau = {:+0.5}, (5/tau)^2 = {}",
-                (sample_size as f64) / 1_000_000f64,
-                max_t,
-                max_tau,
-                (5f64/max_tau).powi(2) as usize)
+        let &CtSummary {
+            max_t,
+            max_tau,
+            sample_size,
+        } = self;
+        format!(
+            "n == {:+0.3}M, max t = {:+0.5}, max tau = {:+0.5}, (5/tau)^2 = {}",
+            (sample_size as f64) / 1_000_000f64,
+            max_t,
+            max_tau,
+            (5f64 / max_tau).powi(2) as usize
+        )
     }
 }
 
@@ -92,7 +98,7 @@ pub fn prepare_percentiles(durations: &[u64]) -> Vec<f64> {
     let mut percentiles = vec![0f64; 100];
     for i in 0..100 {
         let pct = {
-            let exp = (10*(i+1)) as f64 / 100f64;
+            let exp = (10 * (i + 1)) as f64 / 100f64;
             1f64 - 0.5f64.powf(exp)
         };
         percentiles[i] = percentile_of_sorted(&*sorted, 100f64 * pct);
@@ -101,9 +107,10 @@ pub fn prepare_percentiles(durations: &[u64]) -> Vec<f64> {
     percentiles
 }
 
-pub fn update_ct_stats(ctx: Option<CtCtx>,
-                       &(ref left_samples,ref right_samples): &(Vec<u64>, Vec<u64>))
-        -> (CtSummary, CtCtx) {
+pub fn update_ct_stats(
+    ctx: Option<CtCtx>,
+    &(ref left_samples, ref right_samples): &(Vec<u64>, Vec<u64>),
+) -> (CtSummary, CtCtx) {
     // Only construct the context (that is, percentiles and test structs) on the first run
     let (mut tests, percentiles) = match ctx {
         Some(c) => (c.tests, c.percentiles),
@@ -144,9 +151,10 @@ pub fn update_ct_stats(ctx: Option<CtCtx>,
 
     let (max_t, max_tau, sample_size) = {
         // Get the test with the maximum t
-        let max_test = tests.iter()
-                            .max_by(|&x, &y| local_cmp(compute_t(x).abs(), compute_t(y).abs()))
-                            .unwrap();
+        let max_test = tests
+            .iter()
+            .max_by(|&x, &y| local_cmp(compute_t(x).abs(), compute_t(y).abs()))
+            .unwrap();
         let sample_size = max_test.sizes.0 + max_test.sizes.1;
         let max_t = compute_t(&max_test);
         let max_tau = max_t / (sample_size as f64).sqrt();
@@ -154,10 +162,7 @@ pub fn update_ct_stats(ctx: Option<CtCtx>,
         (max_t, max_tau, sample_size)
     };
 
-    let new_ctx = CtCtx {
-        tests,
-        percentiles,
-    };
+    let new_ctx = CtCtx { tests, percentiles };
     let summ = CtSummary {
         max_t,
         max_tau,
@@ -168,13 +173,17 @@ pub fn update_ct_stats(ctx: Option<CtCtx>,
 }
 
 fn compute_t(test: &CtTest) -> f64 {
-    let &CtTest { means, sq_diffs, sizes } = test;
+    let &CtTest {
+        means,
+        sq_diffs,
+        sizes,
+    } = test;
     let num = means.0 - means.1;
     let n0 = sizes.0 as f64;
     let n1 = sizes.1 as f64;
-    let var0 = sq_diffs.0/(n0 - 1f64);
-    let var1 = sq_diffs.1/(n1 - 1f64);
-    let den = (var0/n0 + var1/n1).sqrt();
+    let var0 = sq_diffs.0 / (n0 - 1f64);
+    let var1 = sq_diffs.1 / (n1 - 1f64);
+    let den = (var0 / n0 + var1 / n1).sqrt();
 
     num / den
 }

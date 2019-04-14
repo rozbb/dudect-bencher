@@ -19,8 +19,7 @@ fn arith(runner: &mut CtRunner, rng: &mut BenchRng) {
         // Randomly pick which distribution this example belongs to
         if rng.gen::<bool>() {
             classes.push(Class::Left);
-        }
-        else {
+        } else {
             classes.push(Class::Right);
         }
     }
@@ -67,9 +66,6 @@ fn vec_eq(runner: &mut CtRunner, rng: &mut BenchRng) {
 }
 
 // Expand the main function to include benches for arith and vec_eq
-ctbench_main_with_seeds!(
-    (arith, Some(0x6b6c816d)),
-    (vec_eq, None)
-);
+ctbench_main_with_seeds!((arith, Some(0x6b6c816d)), (vec_eq, None));
 // Alternatively, for no explicit seeds, you can use
 // ctbench_main!(arith, vec_eq);
