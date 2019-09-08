@@ -1,5 +1,5 @@
 [package]
-authors = ["Michael Rosenberg", "micro@fastmail.com"]
+authors = ["Michael Rosenberg <michael@mrosenberg.pub>"]
 name = "dudect-bencher"
 version = "0.4.1"
 edition = "2018"
