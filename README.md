@@ -9,7 +9,7 @@ testing constant-time functions. It is based loosely off of the
 ## Usage
 
 Example use is as follows. Since this requires the current crate as a dependency, it is easiest to
-put the benchmarks in `examples/`. Take a look at `examples/ctbench-foo.rs` for sample source code.
+put the benchmarks in `examples/`. Take a look at [`examples/ctbench-foo.rs`](examples/ctbench-foo.rs) for sample source code.
 
 To run all the benchmarks in `examples/ctbench-foo.rs`, you can simply run `cargo run --release
 --example ctbench-foo`.
