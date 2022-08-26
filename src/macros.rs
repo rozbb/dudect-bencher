@@ -1,28 +1,13 @@
-// Copyright 2012 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
 /// Defines a `fn main()` that will run all benchmarks defined by listed functions `$function` and
-/// their associated seeds (if present). Seeds are represented as `Option<[u32; 4]>`. If `None` is
+/// their associated seeds (if present). Seeds are represented as `Option<u64>`. If `None` is
 /// given, a random seed will be used. The seeds are used to seed the
-/// [`BenchRng`](ctbench/type.BenchRng.html) that's passed to each function.
+/// [`BenchRng`](crate::ctbench::BenchRng) that's passed to each function.
 ///
-/// ```ignore
-/// #[macro_use]
-/// extern crate dudect_bencher;
-/// extern crate rand;
-///
-/// use rand::Rng;
-/// use dudect_bencher::{BenchRng, Class, CtRunner};
+/// ```
+/// use dudect_bencher::{ctbench_main_with_seeds, rand::Rng, BenchRng, Class, CtRunner};
 ///
 /// fn foo(runner: &mut CtRunner, rng: &mut BenchRng) {
-///     println!("first u64 is {}", rng.next_u64());
+///     println!("first u64 is {}", rng.gen::<u64>());
 ///
 ///     // Run something so we don't get a panic
 ///     runner.run_one(Class::Left, || 0);
@@ -30,7 +15,7 @@
 /// }
 ///
 /// fn bar(runner: &mut CtRunner, rng: &mut BenchRng) {
-///     println!("first u64 is {}", rng.next_u64());
+///     println!("first u64 is {}", rng.gen::<u64>());
 ///
 ///     // Run something so we don't get a panic
 ///     runner.run_one(Class::Left, || 0);
@@ -39,13 +24,12 @@
 ///
 /// ctbench_main_with_seeds!(
 ///     (foo, None),
-///     (bar, Some([0x6b6c816d, 0x395d3f8e, 0x798e4828, 0xfbb23c0f]))
+///     (bar, Some(0xdeadbeef))
 /// );
 /// ```
 #[macro_export]
 macro_rules! ctbench_main_with_seeds {
     ($(($function:path, $seed:expr)),+) => {
-        extern crate clap;
         use clap::App;
         use $crate::ctbench::{run_benches_console, BenchName, BenchMetadata, BenchOpts};
         use std::path::PathBuf;
@@ -59,18 +43,25 @@ macro_rules! ctbench_main_with_seeds {
                 });
             )+
             let matches = App::new("dudect-bencher")
-                .arg_from_usage("--filter [BENCH]\
-                                 'Only run the benchmarks whose name contains BENCH'")
-                .arg_from_usage("--continuous [BENCH]\
-                                 'Runs a continuous benchmark on the first bench matching BENCH'")
-                .arg_from_usage("--out [FILE]\
-                                 'Appends raw benchmarking data in CSV format to FILE'")
+                .arg_from_usage(
+                    "--filter [BENCH] \
+                    'Only run the benchmarks whose name contains BENCH'"
+                )
+                .arg_from_usage(
+                    "--continuous [BENCH] \
+                    'Runs a continuous benchmark on the first bench matching BENCH'"
+                )
+                .arg_from_usage(
+                    "--out [FILE] \
+                    'Appends raw benchmarking data in CSV format to FILE'"
+                )
                 .get_matches();
 
             let mut test_opts = BenchOpts::default();
-            test_opts.filter = matches.value_of("continuous")
-                                      .or(matches.value_of("filter"))
-                                      .map(|s| s.to_string());
+            test_opts.filter = matches
+                .value_of("continuous")
+                .or(matches.value_of("filter"))
+                .map(|s| s.to_string());
             test_opts.continuous = matches.is_present("continuous");
             test_opts.file_out = matches.value_of("out").map(PathBuf::from);
 
@@ -80,16 +71,11 @@ macro_rules! ctbench_main_with_seeds {
 }
 
 /// Defines a `fn main()` that will run all benchmarks defined by listed functions `$function`. The
-/// [`BenchRng`](ctbench/type.BenchRng.html)s given to each function are randomly seeded. Exmaple
+/// [`BenchRng`](crate::ctbench::BenchRng)s given to each function are randomly seeded. Exmaple
 /// usage:
 ///
-/// ```ignore
-/// #[macro_use]
-/// extern crate dudect_bencher;
-/// extern crate rand;
-///
-/// use dudect_bencher::{BenchRng, Class, CtRunner};
-/// use rand::Rng;
+/// ```
+/// use dudect_bencher::{ctbench_main, rand::{Rng, RngCore}, BenchRng, Class, CtRunner};
 ///
 /// // Return a random vector of length len
 /// fn rand_vec(len: usize, rng: &mut BenchRng) -> Vec<u8> {
@@ -162,6 +148,6 @@ macro_rules! ctbench_main_with_seeds {
 #[macro_export]
 macro_rules! ctbench_main {
     ($($function:path),+) => {
-        ctbench_main_with_seeds!($(($function, None)),+);
+        ::dudect_bencher::ctbench_main_with_seeds!($(($function, None)),+);
     }
 }

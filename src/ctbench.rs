@@ -32,8 +32,8 @@ impl BenchName {
     }
 }
 
-/// A random number generator implementing [`rand::SeedableRng`](/rand/trait.SeedableRng.html).
-/// This is given to every benchmarking function to use as a source of randomness.
+/// A random number generator implementing [`rand::SeedableRng`]. This is given to every
+/// benchmarking function to use as a source of randomness.
 pub type BenchRng = ChaChaRng;
 
 /// A function that is to be benchmarked. This crate only supports statically-defined functions.
@@ -151,7 +151,7 @@ impl ConsoleBenchState {
 
     fn write_seed(&mut self, seed: u64, name: &BenchName) -> io::Result<()> {
         let name = name.padded(self.max_name_len);
-        self.write_plain(&format!("bench {} seeded with 0x{:x}\n", name, seed))
+        self.write_plain(&format!("bench {} seeded with 0x{:016x}\n", name, seed))
     }
 
     fn write_run_start(&mut self, len: usize) -> io::Result<()> {

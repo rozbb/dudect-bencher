@@ -50,7 +50,11 @@
 // TODO: Do "higher order preprocessing" from the paper
 
 pub mod ctbench;
+mod macros;
 mod stats;
-mod toplevel;
 
+// Re-export the rand dependency
+pub use rand;
+
+#[doc(inline)]
 pub use ctbench::{BenchRng, Class, CtRunner};
