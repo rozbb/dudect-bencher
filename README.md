@@ -6,7 +6,7 @@ This crate implements the [DudeCT](https://eprint.iacr.org/2016/1123.pdf) statis
 testing constant-time functions. It is based loosely off of the
 [`bencher`](https://github.com/bluss/bencher) crate.
 
-# Usage
+## Usage
 
 Example use is as follows. Since this requires the current crate as a dependency, it is easiest to
 put the benchmarks in `examples/`. Take a look at `examples/ctbench-foo.rs` for sample source code.
@@ -23,7 +23,7 @@ To run the `vec_eq` benchmark continuously, collecting more samples as it goes a
 To run the benchmarks in `ctbench-foo` and get the raw runtimes in CSV format, run `cargo run
 --release --example ctbench-foo -- --out data.csv`.
 
-# Interpreting Output
+## Interpreting Output
 
 The benchmark output looks like
 
@@ -45,7 +45,11 @@ t-values greater than 5 are generally considered a good indication that the func
 time. t-values less than 5 does not necessarily imply that the function is constant-time, since
 there may be other input distributions under which the function behaves significantly differently.
 
-# License
+## License
 
-Again, this project derives from the [`bencher`](https://github.com/bluss/bencher) crate under the
-MIT license. This project is licensed under the ([MIT license](LICENSE-MIT)) as well.
+Licensed under either of
+
+ * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
+ * MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
