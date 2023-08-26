@@ -1,10 +1,10 @@
 [package]
 authors = ["Michael Rosenberg <michael@mrosenberg.pub>"]
 name = "dudect-bencher"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 
-license = "MIT"
+license = "MIT OR Apache-2.0"
 
 repository = "https://github.com/rozbb/dudect-bencher/"
 documentation = "https://docs.rs/dudect-bencher/"
