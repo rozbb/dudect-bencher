@@ -23,6 +23,9 @@ To run the `vec_eq` benchmark continuously, collecting more samples as it goes a
 To run the benchmarks in `ctbench-foo` and get the raw runtimes in CSV format, run `cargo run
 --release --example ctbench-foo -- --out data.csv`.
 
+Rust versions 1.66 and higher support a new best-effort optimization barrier (`core::hint::black_box`).
+To use the new optimization barrier, enable the `core_hint_black_box` feature.
+
 ## Interpreting Output
 
 The benchmark output looks like

@@ -18,3 +18,6 @@ clap = "2"
 ctrlc = "3"
 rand = "0.8"
 rand_chacha = "0.3"
+
+[features]
+core_hint_black_box = []

@@ -45,6 +45,9 @@
 //! constant time. t-values less than 5 does not necessarily imply that the function is
 //! constant-time, since there may be other input distributions under which the function behaves
 //! significantly differently.
+//!
+//! Rust versions 1.66 and higher support a new best-effort optimization barrier ([`core::hint::black_box`]).
+//! To use the new optimization barrier, enable the `core_hint_black_box` feature.
 
 // TODO: More comments
 // TODO: Do "higher order preprocessing" from the paper
