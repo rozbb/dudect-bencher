@@ -30,9 +30,8 @@
 #[macro_export]
 macro_rules! ctbench_main_with_seeds {
     ($(($function:path, $seed:expr)),+) => {
-        use clap::App;
+        use $crate::macros::__macro_internal::{clap::App, PathBuf};
         use $crate::ctbench::{run_benches_console, BenchName, BenchMetadata, BenchOpts};
-        use std::path::PathBuf;
         fn main() {
             let mut benches = Vec::new();
             $(
@@ -148,6 +147,13 @@ macro_rules! ctbench_main_with_seeds {
 #[macro_export]
 macro_rules! ctbench_main {
     ($($function:path),+) => {
-        ::dudect_bencher::ctbench_main_with_seeds!($(($function, None)),+);
+        use $crate::macros::__macro_internal::Option;
+        $crate::ctbench_main_with_seeds!($(($function, Option::None)),+);
     }
+}
+
+#[doc(hidden)]
+pub mod __macro_internal {
+    pub use ::clap;
+    pub use ::std::{option::Option, path::PathBuf};
 }

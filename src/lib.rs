@@ -14,7 +14,8 @@
 // TODO: Do "higher order preprocessing" from the paper
 
 pub mod ctbench;
-mod macros;
+#[doc(hidden)]
+pub mod macros;
 mod stats;
 
 // Re-export the rand dependency
