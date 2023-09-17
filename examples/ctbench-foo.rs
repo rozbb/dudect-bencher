@@ -1,10 +1,10 @@
 use dudect_bencher::{ctbench_main_with_seeds, BenchRng, Class, CtRunner};
-use rand::{Rng, RngCore};
+use rand::Rng;
 
 // Return a random vector of length len
 fn rand_vec(len: usize, rng: &mut BenchRng) -> Vec<u8> {
     let mut arr = vec![0u8; len];
-    rng.fill_bytes(&mut arr);
+    rng.fill(arr.as_mut_slice());
     arr
 }
 
