@@ -101,19 +101,18 @@ t-values greater than 5 are generally considered a good indication that the func
 
 ## Command line arguments
 
-To run a subset of the benchmarks whose name contains a specific string, use `--filter`. Example:
+* `--filter` runs a subset of the benchmarks whose name contains a specific string. Example:
 ```shell
 cargo run --release --example ctbench-foo -- --filter ar
 ```
 will run only the benchmarks with the substring `ar` in it, i.e., `arith`, and not `vec_eq`.
-
-To run a benchmark continuously, collecting more samples as it goes along, use `--continuous`. Example:
+* `--continuous` run a benchmark continuously, collecting more samples as it goes along. Example:
 ```shell
 cargo run --release --example ctbench-foo -- --continuous vec_eq
 ```
 will run the `vec_eq` benchmark continuously.
 
-To get raw runtimes in CSV format, use `--out`. Example:
+* `--out` outputs raw runtimes in CSV format. Example:
 ```shell
 cargo run --release --example ctbench-foo -- --out data.csv
 ```
