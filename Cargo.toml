@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 
 repository = "https://github.com/rozbb/dudect-bencher/"
 documentation = "https://docs.rs/dudect-bencher/"
+readme = "README.md"
 
 description = "An implementation of the DudeCT constant-time function tester"
 
@@ -20,4 +21,4 @@ rand = "0.8"
 rand_chacha = "0.3"
 
 [features]
-core_hint_black_box = []
+core-hint-black-box = []

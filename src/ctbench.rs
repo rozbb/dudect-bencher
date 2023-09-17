@@ -333,7 +333,7 @@ fn filter_benches(filter: &Option<String>, bs: Vec<BenchMetadata>) -> Vec<BenchM
 //
 // A function that is opaque to the optimizer, to allow benchmarks to pretend to use outputs to
 // assist in avoiding dead-code elimination.
-#[cfg(not(feature = "core_hint_black_box"))]
+#[cfg(not(feature = "core-hint-black-box"))]
 fn black_box<T>(dummy: T) -> T {
     unsafe {
         let ret = ::std::ptr::read_volatile(&dummy);
@@ -342,7 +342,7 @@ fn black_box<T>(dummy: T) -> T {
     }
 }
 
-#[cfg(feature = "core_hint_black_box")]
+#[cfg(feature = "core-hint-black-box")]
 #[inline]
 fn black_box<T>(dummy: T) -> T {
     ::core::hint::black_box(dummy)
