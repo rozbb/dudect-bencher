@@ -93,7 +93,7 @@ impl CtBencher {
 
     /// Returns a random seed
     fn rand_seed() -> u64 {
-        rand::thread_rng().gen()
+        rand::rng().random()
     }
 
     /// Reseeds the internal RNG with the given seed
