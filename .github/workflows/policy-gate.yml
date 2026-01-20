@@ -1,0 +1,39 @@
+name: Policy Gate
+
+on:
+  push:
+    branches: [master, feat/*]
+  pull_request:
+    branches: [master]
+
+permissions: {}
+
+jobs:
+  policy-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for secrets in code
+        run: |
+          # Basic check - no hardcoded secrets patterns
+          if grep -rE "(password|secret|api_key)\s*=\s*['\"][^'\"]+['\"]" --include="*.rs" .; then
+            echo "Potential hardcoded secrets found"
+            exit 1
+          fi
+          echo "No obvious secrets found"
+
+  policy-gate:
+    runs-on: ubuntu-latest
+    needs: [policy-checks]
+    if: always()
+    steps:
+      - name: Policy Gate
+        run: |
+          if [ "${{ needs.policy-checks.result }}" != "success" ]; then
+            echo "Policy checks failed"
+            exit 1
+          fi
+          echo "Policy gate passed"

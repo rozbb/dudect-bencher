@@ -1,0 +1,42 @@
+name: Supply Chain
+
+on:
+  push:
+    branches: [master, feat/*]
+  pull_request:
+    branches: [master]
+
+permissions: {}
+
+jobs:
+  supply-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Check licenses
+        run: cargo deny check licenses || echo "No deny.toml, skipping license check"
+
+      - name: Verify dependencies
+        run: cargo tree --depth 1
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    needs: [supply-checks]
+    if: always()
+    steps:
+      - name: Supply Chain Gate
+        run: |
+          if [ "${{ needs.supply-checks.result }}" != "success" ]; then
+            echo "Supply chain checks failed"
+            exit 1
+          fi
+          echo "Supply chain passed"

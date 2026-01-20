@@ -1,0 +1,39 @@
+name: Security
+
+on:
+  push:
+    branches: [master, feat/*]
+  pull_request:
+    branches: [master]
+
+permissions: {}
+
+jobs:
+  security-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Security audit
+        run: cargo audit
+
+  security:
+    runs-on: ubuntu-latest
+    needs: [security-checks]
+    if: always()
+    steps:
+      - name: Security Gate
+        run: |
+          if [ "${{ needs.security-checks.result }}" != "success" ]; then
+            echo "Security checks failed"
+            exit 1
+          fi
+          echo "Security passed"

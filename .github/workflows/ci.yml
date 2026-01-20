@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [master, feat/*]
+  pull_request:
+    branches: [master]
+
+permissions: {}
+
+jobs:
+  ci-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Build
+        run: cargo build --all-targets
+
+      - name: Test
+        run: cargo test
+
+  ci:
+    runs-on: ubuntu-latest
+    needs: [ci-checks]
+    if: always()
+    steps:
+      - name: CI Gate
+        run: |
+          if [ "${{ needs.ci-checks.result }}" != "success" ]; then
+            echo "CI checks failed"
+            exit 1
+          fi
+          echo "CI passed"
