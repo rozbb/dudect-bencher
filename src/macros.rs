@@ -30,7 +30,7 @@
 #[macro_export]
 macro_rules! ctbench_main_with_seeds {
     ($(($function:path, $seed:expr)),+) => {
-        use $crate::macros::__macro_internal::{clap::App, PathBuf};
+        use $crate::macros::__macro_internal::{clap::{Command, Arg}, PathBuf};
         use $crate::ctbench::{run_benches_console, BenchName, BenchMetadata, BenchOpts};
         fn main() {
             let mut benches = Vec::new();
@@ -41,28 +41,34 @@ macro_rules! ctbench_main_with_seeds {
                     benchfn: $function,
                 });
             )+
-            let matches = App::new("dudect-bencher")
-                .arg_from_usage(
-                    "--filter [BENCH] \
-                    'Only run the benchmarks whose name contains BENCH'"
+            let matches = Command::new("dudect-bencher")
+                .arg(
+                    Arg::new("filter")
+                        .long("filter")
+                        .value_name("BENCH")
+                        .help("Only run the benchmarks whose name contains BENCH")
                 )
-                .arg_from_usage(
-                    "--continuous [BENCH] \
-                    'Runs a continuous benchmark on the first bench matching BENCH'"
+                .arg(
+                    Arg::new("continuous")
+                        .long("continuous")
+                        .value_name("BENCH")
+                        .help("Runs a continuous benchmark on the first bench matching BENCH")
                 )
-                .arg_from_usage(
-                    "--out [FILE] \
-                    'Appends raw benchmarking data in CSV format to FILE'"
+                .arg(
+                    Arg::new("out")
+                        .long("out")
+                        .value_name("FILE")
+                        .help("Appends raw benchmarking data in CSV format to FILE")
                 )
                 .get_matches();
 
             let mut test_opts = BenchOpts::default();
             test_opts.filter = matches
-                .value_of("continuous")
-                .or(matches.value_of("filter"))
-                .map(|s| s.to_string());
-            test_opts.continuous = matches.is_present("continuous");
-            test_opts.file_out = matches.value_of("out").map(PathBuf::from);
+                .get_one::<String>("continuous")
+                .or(matches.get_one::<String>("filter"))
+                .cloned();
+            test_opts.continuous = matches.contains_id("continuous") && matches.get_one::<String>("continuous").is_some();
+            test_opts.file_out = matches.get_one::<String>("out").map(PathBuf::from);
 
             run_benches_console(test_opts, benches).unwrap();
         }

@@ -1,7 +1,7 @@
 [package]
 authors = ["Michael Rosenberg <michael@mrosenberg.pub>"]
 name = "dudect-bencher"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,7 @@ description = "An implementation of the DudeCT constant-time function tester"
 keywords = ["constant", "constant-time", "crypto", "benchmark"]
 
 [dependencies]
-clap = "2"
+clap = "4"
 ctrlc = "3"
 rand = "0.8"
 rand_chacha = "0.3"
