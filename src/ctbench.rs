@@ -4,7 +4,6 @@ use std::{
     fs::{File, OpenOptions},
     hint::black_box,
     io::{self, Write},
-    iter::repeat,
     path::PathBuf,
     process,
     sync::{
@@ -25,8 +24,8 @@ pub struct BenchName(pub &'static str);
 impl BenchName {
     fn padded(&self, column_count: usize) -> String {
         let mut name = self.0.to_string();
-        let fill = column_count.saturating_sub(name.len());
-        let pad = repeat(" ").take(fill).collect::<String>();
+        let pad_len = column_count.saturating_sub(name.len());
+        let pad = " ".repeat(pad_len);
         name.push_str(&pad);
 
         name
@@ -43,11 +42,11 @@ pub type BenchFn = fn(&mut CtRunner, &mut BenchRng);
 // TODO: Consider giving this a lifetime so we don't have to copy names and vecs into it
 #[derive(Clone)]
 enum BenchEvent {
-    BContStart,
-    BBegin(Vec<BenchName>),
-    BWait(BenchName),
-    BResult(MonitorMsg),
-    BSeed(u64, BenchName),
+    ContStart,
+    Begin(Vec<BenchName>),
+    Wait(BenchName),
+    Result(MonitorMsg),
+    Seed(u64, BenchName),
 }
 
 type MonitorMsg = (BenchName, stats::CtSummary);
@@ -132,7 +131,6 @@ pub struct BenchOpts {
     pub file_out: Option<PathBuf>,
 }
 
-#[derive(Default)]
 struct ConsoleBenchState {
     // Number of columns to fill when aligning names
     max_name_len: usize,
@@ -179,19 +177,20 @@ pub fn run_benches_console(opts: BenchOpts, benches: Vec<BenchMetadata>) -> io::
     // TODO: Consider making this run in its own thread
     fn callback(event: &BenchEvent, st: &mut ConsoleBenchState) -> io::Result<()> {
         match (*event).clone() {
-            BenchEvent::BContStart => st.write_continuous_start(),
-            BenchEvent::BBegin(ref filtered_benches) => st.write_run_start(filtered_benches.len()),
-            BenchEvent::BWait(ref b) => st.write_bench_start(b),
-            BenchEvent::BResult(msg) => {
+            BenchEvent::ContStart => st.write_continuous_start(),
+            BenchEvent::Begin(ref filtered_benches) => st.write_run_start(filtered_benches.len()),
+            BenchEvent::Wait(ref b) => st.write_bench_start(b),
+            BenchEvent::Result(msg) => {
                 let (_, summ) = msg;
                 st.write_result(&summ)
             }
-            BenchEvent::BSeed(seed, ref name) => st.write_seed(seed, name),
+            BenchEvent::Seed(seed, ref name) => st.write_seed(seed, name),
         }
     }
 
-    let mut st = ConsoleBenchState::default();
-    st.max_name_len = benches.iter().map(|t| t.name.0.len()).max().unwrap_or(0);
+    let mut st = ConsoleBenchState {
+        max_name_len: benches.iter().map(|t| t.name.0.len()).max().unwrap_or(0),
+    };
 
     run_benches(&opts, benches, |x| callback(&x, &mut st))?;
     st.write_run_finish()
@@ -212,8 +211,6 @@ fn run_benches<F>(opts: &BenchOpts, benches: Vec<BenchMetadata>, mut callback: F
 where
     F: FnMut(BenchEvent) -> io::Result<()>,
 {
-    use self::BenchEvent::*;
-
     let filter = &opts.filter;
     let filtered_benches = filter_benches(filter, benches);
     let filtered_names = filtered_benches.iter().map(|b| b.name).collect();
@@ -225,10 +222,7 @@ where
             .truncate(true)
             .create(true)
             .open(filename)
-            .expect(&*format!(
-                "Could not open file '{:?}' for writing",
-                filename
-            ))
+            .unwrap_or_else(|e| panic!("Could not open file '{:?}' for writing: {e}", filename))
     });
     file_out.as_mut().map(|f| {
         f.write(b"benchname,class,runtime")
@@ -243,7 +237,7 @@ where
     };
 
     if opts.continuous {
-        callback(BContStart)?;
+        callback(BenchEvent::ContStart)?;
 
         if filtered_benches.is_empty() {
             match *filter {
@@ -262,12 +256,12 @@ where
         // If a seed was specified for this bench, use it. Otherwise, use a random seed
         let seed = bench.seed.unwrap_or_else(CtBencher::rand_seed);
         cb.seed_with(seed);
-        callback(BSeed(seed, bench.name))?;
+        callback(BenchEvent::Seed(seed, bench.name))?;
 
         loop {
-            callback(BWait(bench.name))?;
+            callback(BenchEvent::Wait(bench.name))?;
             let msg = run_bench_with_bencher(&bench.name, bench.benchfn, &mut cb);
-            callback(BResult(msg))?;
+            callback(BenchEvent::Result(msg))?;
 
             // Check if the program has been killed. If so, exit
             if kill_bit.load(atomic::Ordering::SeqCst) {
@@ -275,7 +269,7 @@ where
             }
         }
     } else {
-        callback(BBegin(filtered_names))?;
+        callback(BenchEvent::Begin(filtered_names))?;
 
         // Run different benches
         for bench in filtered_benches {
@@ -285,11 +279,11 @@ where
             // If a seed was specified for this bench, use it. Otherwise, use a random seed
             let seed = bench.seed.unwrap_or_else(CtBencher::rand_seed);
             cb.seed_with(seed);
-            callback(BSeed(seed, bench.name))?;
+            callback(BenchEvent::Seed(seed, bench.name))?;
 
-            callback(BWait(bench.name))?;
+            callback(BenchEvent::Wait(bench.name))?;
             let msg = run_bench_with_bencher(&bench.name, bench.benchfn, &mut cb);
-            callback(BResult(msg))?;
+            callback(BenchEvent::Result(msg))?;
         }
         Ok(())
     }
@@ -323,7 +317,7 @@ fn filter_benches(filter: &Option<String>, bs: Vec<BenchMetadata>) -> Vec<BenchM
     };
 
     // Sort them alphabetically
-    filtered.sort_by(|b1, b2| b1.name.0.cmp(&b2.name.0));
+    filtered.sort_by(|b1, b2| b1.name.0.cmp(b2.name.0));
 
     filtered
 }

@@ -105,7 +105,7 @@ pub fn prepare_percentiles(durations: &[u64]) -> Vec<f64> {
 
 pub fn update_ct_stats(
     ctx: Option<CtCtx>,
-    &(ref left_samples, ref right_samples): &(Vec<u64>, Vec<u64>),
+    (left_samples, right_samples): &(Vec<u64>, Vec<u64>),
 ) -> (CtSummary, CtCtx) {
     // Only construct the context (that is, percentiles and test structs) on the first run
     let (mut tests, percentiles) = match ctx {
@@ -113,10 +113,10 @@ pub fn update_ct_stats(
         None => {
             let all_samples = {
                 let mut v = left_samples.clone();
-                v.extend_from_slice(&*right_samples);
+                v.extend_from_slice(right_samples);
                 v
             };
-            let pcts = prepare_percentiles(&*all_samples);
+            let pcts = prepare_percentiles(&all_samples);
             let tests = vec![CtTest::default(); 101];
 
             (tests, pcts)
@@ -152,7 +152,7 @@ pub fn update_ct_stats(
             .max_by(|&x, &y| local_cmp(compute_t(x).abs(), compute_t(y).abs()))
             .unwrap();
         let sample_size = max_test.sizes.0 + max_test.sizes.1;
-        let max_t = compute_t(&max_test);
+        let max_t = compute_t(max_test);
         let max_tau = max_t / (sample_size as f64).sqrt();
 
         (max_t, max_tau, sample_size)
