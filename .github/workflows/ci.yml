@@ -47,9 +47,12 @@ jobs:
       - run: cargo +nightly msrv verify --all-features
 
   clippy:
-    name: Check clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
       - run: cargo clippy --all-features -- -D warnings
