@@ -2,7 +2,7 @@
 
 Entries are listed in reverse chronological order.
 
-## Unreleased
+## 0.7.0
 
 * Bumped MSRV to 1.85
 * Removed `core-hint-black-box` feature flag, since MSRV now covers `core::hint::black_box`
