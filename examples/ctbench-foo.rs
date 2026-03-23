@@ -1,10 +1,10 @@
 use dudect_bencher::{ctbench_main_with_seeds, BenchRng, Class, CtRunner};
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 // Return a random vector of length len
 fn rand_vec(len: usize, rng: &mut BenchRng) -> Vec<u8> {
     let mut arr = vec![0u8; len];
-    rng.fill(arr.as_mut_slice());
+    rng.fill_bytes(arr.as_mut_slice());
     arr
 }
 
@@ -15,9 +15,10 @@ fn arith(runner: &mut CtRunner, rng: &mut BenchRng) {
 
     // Make 100,000 inputs on each run
     for _ in 0..100_000 {
-        inputs.push(rng.gen::<usize>());
+        inputs.push(rng.random::<u32>());
+
         // Randomly pick which distribution this example belongs to
-        if rng.gen::<bool>() {
+        if rng.random::<bool>() {
             classes.push(Class::Left);
         } else {
             classes.push(Class::Right);
@@ -42,7 +43,7 @@ fn vec_eq(runner: &mut CtRunner, rng: &mut BenchRng) {
     for _ in 0..100_000 {
         // Flip a coin. If true, make a pair of vectors that are equal to each other and put it
         // in the Left distribution
-        if rng.gen::<bool>() {
+        if rng.random::<bool>() {
             let v1 = rand_vec(vlen, rng);
             let v2 = v1.clone();
             inputs.push((v1, v2));

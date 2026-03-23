@@ -4,10 +4,10 @@
 /// [`BenchRng`](crate::ctbench::BenchRng) that's passed to each function.
 ///
 /// ```
-/// use dudect_bencher::{ctbench_main_with_seeds, rand::Rng, BenchRng, Class, CtRunner};
+/// use dudect_bencher::{ctbench_main_with_seeds, rand::{Rng, RngExt}, BenchRng, Class, CtRunner};
 ///
 /// fn foo(runner: &mut CtRunner, rng: &mut BenchRng) {
-///     println!("first u64 is {}", rng.gen::<u64>());
+///     println!("first u64 is {}", rng.random::<u64>());
 ///
 ///     // Run something so we don't get a panic
 ///     runner.run_one(Class::Left, || 0);
@@ -15,7 +15,7 @@
 /// }
 ///
 /// fn bar(runner: &mut CtRunner, rng: &mut BenchRng) {
-///     println!("first u64 is {}", rng.gen::<u64>());
+///     println!("first u64 is {}", rng.random::<u64>());
 ///
 ///     // Run something so we don't get a panic
 ///     runner.run_one(Class::Left, || 0);
@@ -74,7 +74,7 @@ macro_rules! ctbench_main_with_seeds {
 /// usage:
 ///
 /// ```
-/// use dudect_bencher::{ctbench_main, rand::{Rng, RngCore}, BenchRng, Class, CtRunner};
+/// use dudect_bencher::{ctbench_main, rand::{Rng, RngExt}, BenchRng, Class, CtRunner};
 ///
 /// // Return a random vector of length len
 /// fn rand_vec(len: usize, rng: &mut BenchRng) -> Vec<u8> {
@@ -90,9 +90,14 @@ macro_rules! ctbench_main_with_seeds {
 ///
 ///     // Make 100,000 inputs on each run
 ///     for _ in 0..100_000 {
-///         inputs.push(rng.gen::<usize>());
+///         #[cfg(target_pointer_width = "64")]
+///         inputs.push(rng.random::<u64>());
+///        
+///         #[cfg(target_pointer_width = "32")]
+///         inputs.push(rng.random::<u32>());
+///         
 ///         // Randomly pick which distribution this example belongs to
-///         if rng.gen::<bool>() {
+///         if rng.random::<bool>() {
 ///             classes.push(Class::Left);
 ///         }
 ///         else {
@@ -118,7 +123,7 @@ macro_rules! ctbench_main_with_seeds {
 ///     for _ in 0..100_000 {
 ///         // Flip a coin. If true, make a pair of vectors that are equal to each other and put
 ///         // it in the Left distribution
-///         if rng.gen::<bool>() {
+///         if rng.random::<bool>() {
 ///             let v1 = rand_vec(vlen, rng);
 ///             let v2 = v1.clone();
 ///             inputs.push((v1, v2));

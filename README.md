@@ -27,7 +27,7 @@ Here is an example of testing the equality function `v == u` where `v` and `u` a
 
 ```rust
 use dudect_bencher::{ctbench_main, BenchRng, Class, CtRunner};
-use rand::{Rng, RngCore};
+use rand::{Rng, RngExt};
 
 // Return a random vector of length len
 fn rand_vec(len: usize, rng: &mut BenchRng) -> Vec<u8> {
@@ -48,7 +48,7 @@ fn vec_eq(runner: &mut CtRunner, rng: &mut BenchRng) {
     for _ in 0..100_000 {
         // Flip a coin. If true, make a pair of vectors that are equal to each
         // other and put it in the Left distribution
-        if rng.gen::<bool>() {
+        if rng.random::<bool>() {
             let v1 = rand_vec(vlen, rng);
             let v2 = v1.clone();
             inputs.push((v1, v2));
@@ -117,6 +117,14 @@ will run the `vec_eq` benchmark continuously.
 cargo run --release --example ctbench-foo -- --out data.csv
 ```
 will output all the benchmarks in `ctbench-foo.rs` to `data.csv`.
+
+# MSRV
+
+The current minimum supported Rust version (MSRV) is 1.85.0 (2025-02-20).
+
+# Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes made throughout past versions.
 
 # License
 
