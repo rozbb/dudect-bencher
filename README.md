@@ -118,6 +118,14 @@ cargo run --release --example ctbench-foo -- --out data.csv
 ```
 will output all the benchmarks in `ctbench-foo.rs` to `data.csv`.
 
+# MSRV
+
+The current minimum supported Rust version (MSRV) is 1.85.0 (2025-02-20).
+
+# Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes made throughout past versions.
+
 # License
 
 Licensed under either of

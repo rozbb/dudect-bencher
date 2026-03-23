@@ -2,6 +2,7 @@ use crate::stats;
 
 use std::{
     fs::{File, OpenOptions},
+    hint::black_box,
     io::{self, Write},
     iter::repeat,
     path::PathBuf,
@@ -325,27 +326,6 @@ fn filter_benches(filter: &Option<String>, bs: Vec<BenchMetadata>) -> Vec<BenchM
     filtered.sort_by(|b1, b2| b1.name.0.cmp(&b2.name.0));
 
     filtered
-}
-
-// NOTE: We don't have a proper black box in stable Rust. This is a workaround implementation,
-// that may have a too big performance overhead, depending on operation, or it may fail to
-// properly avoid having code optimized out. It is good enough that it is used by default.
-//
-// A function that is opaque to the optimizer, to allow benchmarks to pretend to use outputs to
-// assist in avoiding dead-code elimination.
-#[cfg(not(feature = "core-hint-black-box"))]
-fn black_box<T>(dummy: T) -> T {
-    unsafe {
-        let ret = ::std::ptr::read_volatile(&dummy);
-        ::std::mem::forget(dummy);
-        ret
-    }
-}
-
-#[cfg(feature = "core-hint-black-box")]
-#[inline]
-fn black_box<T>(dummy: T) -> T {
-    ::core::hint::black_box(dummy)
 }
 
 /// Specifies the distribution that a particular run belongs to
