@@ -10,12 +10,8 @@ In general, it is not possible to prove that a function always runs in constant 
 
 To import this crate, put the following line in your `Cargo.toml`:
 ```toml
-dudect-bencher = "0.6"
+dudect-bencher = "0.7"
 ```
-
-Feature flags exposed by this crate:
-
-* `core-hint-black-box` (default) — Enables a new best-effort optimization barrier (`core::hint::black_box`). **This will not compile if you're using a Rust version <1.66.**
 
 # Usage
 
