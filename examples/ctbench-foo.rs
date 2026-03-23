@@ -15,10 +15,6 @@ fn arith(runner: &mut CtRunner, rng: &mut BenchRng) {
 
     // Make 100,000 inputs on each run
     for _ in 0..100_000 {
-        #[cfg(target_pointer_width = "64")]
-        inputs.push(rng.random::<u64>());
-
-        #[cfg(target_pointer_width = "32")]
         inputs.push(rng.random::<u32>());
 
         // Randomly pick which distribution this example belongs to
